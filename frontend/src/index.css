@@ -1,0 +1,281 @@
+@import "tailwindcss";
+
+@theme {
+  --color-neon-cyan: #00f3ff;
+  --color-neon-purple: #b500ff;
+  --color-neon-green: #00ff88;
+  --color-dark-bg: #050508;
+  --color-dark-surface: #0d0d16;
+  --color-glass: rgba(13, 13, 22, 0.7);
+  --color-glass-highlight: rgba(255, 255, 255, 0.06);
+  --color-glass-border: rgba(255, 255, 255, 0.07);
+}
+
+/* ─── Motion Timing Utilities ─────────────────────────────── */
+@layer utilities {
+  .transition-hover {
+    transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .transition-micro {
+    transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .transition-modal {
+    transition: all 350ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .transition-route {
+    transition: all 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+/* ─── Glass Utilities ─────────────────────────────────────── */
+@layer utilities {
+  .glass {
+    background-color: var(--color-glass);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--color-glass-border);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+  }
+
+  .glass-panel {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.005) 100%);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 8px 40px 0 rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .glass-input {
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+    transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .glass-input:focus {
+    background: rgba(13, 13, 22, 0.85);
+    border-color: var(--color-neon-purple);
+    box-shadow: 0 0 20px rgba(181, 0, 255, 0.25), inset 0 2px 4px rgba(0, 0, 0, 0.5);
+    outline: none;
+  }
+
+  /* ─── Neon Text ─── */
+  .neon-text-cyan {
+    color: var(--color-neon-cyan);
+    text-shadow: 0 0 8px rgba(0, 243, 255, 0.6), 0 0 20px rgba(0, 243, 255, 0.3);
+  }
+
+  .neon-text-purple {
+    color: var(--color-neon-purple);
+    text-shadow: 0 0 8px rgba(181, 0, 255, 0.6), 0 0 20px rgba(181, 0, 255, 0.3);
+  }
+
+  /* ─── Neon Borders ─── */
+  .neon-border-cyan {
+    border-color: var(--color-neon-cyan);
+    box-shadow: 0 0 12px rgba(0, 243, 255, 0.3);
+  }
+
+  .neon-border-purple {
+    border-color: var(--color-neon-purple);
+    box-shadow: 0 0 12px rgba(181, 0, 255, 0.3);
+  }
+
+  /* ─── Message Bubbles ─── */
+  .bubble-own {
+    background: linear-gradient(135deg, rgba(181, 0, 255, 0.88) 0%, rgba(110, 0, 190, 0.7) 100%);
+    box-shadow: 0 4px 20px rgba(181, 0, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .bubble-other {
+    background: linear-gradient(135deg, rgba(45, 45, 58, 0.9) 0%, rgba(22, 22, 34, 0.9) 100%);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  /* Grouped bubble corner adjustments */
+  .bubble-own-grouped-top {
+    border-bottom-right-radius: 4px;
+  }
+
+  .bubble-own-grouped-mid {
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+  }
+
+  .bubble-own-grouped-bot {
+    border-top-right-radius: 4px;
+  }
+
+  .bubble-other-grouped-top {
+    border-bottom-left-radius: 4px;
+  }
+
+  .bubble-other-grouped-mid {
+    border-top-left-radius: 4px;
+    border-bottom-left-radius: 4px;
+  }
+
+  .bubble-other-grouped-bot {
+    border-top-left-radius: 4px;
+  }
+
+  /* ─── Depth Layers ─── */
+  .depth-bg {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .depth-glow {
+    filter: blur(80px);
+    opacity: 0.15;
+    pointer-events: none;
+  }
+
+  /* ─── Shimmer loading skeleton ─── */
+  .shimmer {
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.03) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.6s infinite;
+  }
+}
+
+/* ─── Animations ────────────────────────────────────────── */
+
+@keyframes ambient-gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes orb-drift-1 {
+
+  0%,
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+
+  33% {
+    transform: translate(40px, -30px) scale(1.05);
+  }
+
+  66% {
+    transform: translate(-20px, 20px) scale(0.97);
+  }
+}
+
+@keyframes orb-drift-2 {
+
+  0%,
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+
+  33% {
+    transform: translate(-50px, 30px) scale(1.03);
+  }
+
+  66% {
+    transform: translate(30px, -40px) scale(0.98);
+  }
+}
+
+@keyframes orb-drift-3 {
+
+  0%,
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+
+  50% {
+    transform: translate(20px, 50px) scale(1.06);
+  }
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    opacity: 0.12;
+  }
+
+  50% {
+    opacity: 0.22;
+  }
+}
+
+.animate-ambient {
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(181, 0, 255, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(0, 243, 255, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(0, 243, 255, 0.03) 0%, transparent 70%),
+    var(--color-dark-bg);
+  background-size: 200% 200%;
+  animation: ambient-gradient 18s ease infinite;
+}
+
+.orb-1 {
+  animation: orb-drift-1 22s ease-in-out infinite;
+}
+
+.orb-2 {
+  animation: orb-drift-2 28s ease-in-out infinite;
+}
+
+.orb-3 {
+  animation: orb-drift-3 18s ease-in-out infinite;
+  animation-delay: -8s;
+}
+
+/* ─── Base ──────────────────────────────────────────── */
+body {
+  background-color: var(--color-dark-bg);
+  color: #ffffff;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  margin: 0;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(181, 0, 255, 0.5);
+}
