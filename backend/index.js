@@ -35,6 +35,7 @@ setupSocketIO(app, io);
 // Middleware
 app.use(helmet({
     crossOriginResourcePolicy: false,
+    hsts: false, // Prevent Strict-Transport-Security header to avoid forced HTTPS and TLS errors in local dev
 }));
 
 // CORS — explicit and safe
