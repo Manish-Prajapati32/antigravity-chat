@@ -1,13 +1,12 @@
-// Automatically match the backend protocol (http/https) to
-// whatever protocol the frontend page is served on.
-// This prevents the OpenSSL TLS error when mixing http:// and https://.
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-const protocol = window.location.protocol; // 'http:' or 'https:'
+// In production, VITE_API_URL must be set as an environment variable in Vercel.
+// Example: https://your-backend.onrender.com/api
+export const API_URL = import.meta.env.VITE_API_URL
+    ? import.meta.env.VITE_API_URL
+    : (isLocalhost
+        ? 'http://localhost:5000/api'
+        : null); // Will cause a clear network error instead of connecting to wrong host
 
-export const BASE_URL = import.meta.env.VITE_API_URL
-    ? import.meta.env.VITE_API_URL.replace('/api', '')
-    : (window.location.hostname === 'localhost'
-        ? 'http://localhost:5000'
-        : `${protocol}//` + window.location.hostname + ':5000');
+export const BASE_URL = API_URL ? API_URL.replace('/api', '') : '';
 
-export const API_URL = `${BASE_URL}/api`;
