@@ -44,6 +44,7 @@ const allowedOrigins = [
     'http://localhost:4173',
     /^http:\/\/192\.168\./, // local network
     /^http:\/\/10\./, // local network
+    /^https:\/\/.*\.vercel\.app$/, // all Vercel preview/production deployments
 ];
 app.use(cors({
     origin: (origin, callback) => {
