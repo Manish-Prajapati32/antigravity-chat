@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useChatStore } from '../store/useChatStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { Send, FileUp, FileText, X, Pin, Smile, Check, CheckCheck, MoreVertical, Globe, Sparkles, Wand2, ChevronDown, Mic } from 'lucide-react';
+import { Send, FileUp, FileText, X, Pin, Smile, Check, CheckCheck, MoreVertical, Globe, Sparkles, Wand2, ChevronDown, Mic, Camera } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
@@ -36,11 +36,11 @@ const Chat = () => {
     const { soundEnabled } = useSettingsStore();
     const { playSend, playReceive, playPrivate } = useSoundPlayer(soundEnabled);
 
-
     const [content, setContent] = useState('');
     const [file, setFile] = useState(null);
     const [filePreview, setFilePreview] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
     const [hoveredMessageId, setHoveredMessageId] = useState(null);
     const [showReactionPickerFor, setShowReactionPickerFor] = useState(null);
@@ -58,8 +58,10 @@ const Chat = () => {
     const messagesEndRef = useRef(null);
     const scrollContainerRef = useRef(null);
     const idleTimerRef = useRef(null);
+    const fileInputRef = useRef(null);
+    const cameraInputRef = useRef(null);
 
-    // Guard: don't render Chat until user is loaded (prevents crash on initial load)
+    // Guard: don't render Chat until user is loaded
     if (!currentUser) return null;
 
     const activeMessages = activeChat === null ? globalMessages : messages;
@@ -94,7 +96,7 @@ const Chat = () => {
                 const distFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
                 setShowScrollBtn(distFromBottom > 300);
             };
-            container.addEventListener('scroll', handleScroll);
+            container.addEventListener('scroll', handleScroll, { passive: true });
             return () => container.removeEventListener('scroll', handleScroll);
         }
 
@@ -117,7 +119,7 @@ const Chat = () => {
             idleTimerRef.current = setTimeout(() => sendIdleStatus(true), IDLE_TIMEOUT);
         };
         const events = ['mousemove', 'keydown', 'click', 'touchstart'];
-        events.forEach(e => window.addEventListener(e, resetIdle));
+        events.forEach(e => window.addEventListener(e, resetIdle, { passive: true }));
         resetIdle();
         return () => {
             events.forEach(e => window.removeEventListener(e, resetIdle));
@@ -170,7 +172,6 @@ const Chat = () => {
         setRephraseLoading(false);
     };
 
-
     const handleDragOver = (e) => {
         e.preventDefault();
         setIsDragging(true);
@@ -184,7 +185,6 @@ const Chat = () => {
     const handleDrop = (e) => {
         e.preventDefault();
         setIsDragging(false);
-
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
             processFile(e.dataTransfer.files[0]);
         }
@@ -192,16 +192,11 @@ const Chat = () => {
 
     const processFile = (selectedFile) => {
         if (!selectedFile) return;
-
-        // Check size limit (20MB)
         if (selectedFile.size > 20 * 1024 * 1024) {
             alert("File size exceeds 20MB limit.");
             return;
         }
-
         setFile(selectedFile);
-
-        // Create preview for images
         if (selectedFile.type.startsWith('image/')) {
             const reader = new FileReader();
             reader.onloadend = () => setFilePreview(reader.result);
@@ -214,17 +209,23 @@ const Chat = () => {
     const handleTyping = (e) => {
         setContent(e.target.value);
         sendTypingStatus(e.target.value.length > 0);
+        // Auto resize textarea
+        e.target.style.height = 'auto';
+        e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px';
     };
 
     const handleFileChange = (e) => {
         const selectedFile = e.target.files[0];
         if (!selectedFile) return;
         processFile(selectedFile);
+        // Reset input so same file can be re-selected
+        e.target.value = '';
     };
 
     const clearFile = () => {
         setFile(null);
         setFilePreview(null);
+        setUploadProgress(0);
     };
 
     const submitMessage = async (e) => {
@@ -238,6 +239,7 @@ const Chat = () => {
 
         if (file) {
             setIsUploading(true);
+            setUploadProgress(0);
             const formData = new FormData();
             formData.append('file', file);
 
@@ -246,6 +248,10 @@ const Chat = () => {
                     headers: {
                         Authorization: `Bearer ${token}`,
                         'Content-Type': 'multipart/form-data'
+                    },
+                    onUploadProgress: (progressEvent) => {
+                        const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                        setUploadProgress(percent);
                     }
                 });
 
@@ -255,9 +261,11 @@ const Chat = () => {
             } catch (err) {
                 console.error('Upload failed', err);
                 setIsUploading(false);
+                setUploadProgress(0);
                 return;
             }
             setIsUploading(false);
+            setUploadProgress(0);
         }
 
         sendMessage(payload);
@@ -270,20 +278,20 @@ const Chat = () => {
 
     const renderMedia = (msg) => {
         if (!msg.fileUrl) return null;
-
         const url = `${BASE_URL}${msg.fileUrl}`;
 
         switch (msg.fileType) {
             case 'image':
                 return (
                     <div
-                        className="mt-2 rounded-xl overflow-hidden border border-[var(--color-glass-border)] max-w-sm cursor-zoom-in group/img relative"
+                        className="mt-2 rounded-xl overflow-hidden border border-[var(--color-glass-border)] max-w-xs cursor-zoom-in group/img relative"
                         onClick={() => setLightboxUrl(url)}
                     >
                         <img
                             src={url}
                             alt="Uploaded"
-                            className="w-full h-auto max-h-64 object-cover transition-transform duration-300 group-hover/img:scale-105"
+                            loading="lazy"
+                            className="w-full h-auto max-h-56 object-cover transition-transform duration-300 group-hover/img:scale-105"
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/20 transition-colors flex items-center justify-center">
                             <div className="opacity-0 group-hover/img:opacity-100 transition-opacity bg-black/70 rounded-full p-2 text-white text-xs font-medium">
@@ -294,8 +302,8 @@ const Chat = () => {
                 );
             case 'video':
                 return (
-                    <div className="mt-2 rounded-xl overflow-hidden border border-[var(--color-glass-border)] max-w-sm shadow-lg">
-                        <video src={url} controls className="w-full h-auto max-h-60 bg-black" />
+                    <div className="mt-2 rounded-xl overflow-hidden border border-[var(--color-glass-border)] max-w-xs shadow-lg">
+                        <video src={url} controls className="w-full h-auto max-h-52 bg-black" playsInline />
                     </div>
                 );
             case 'audio':
@@ -313,11 +321,11 @@ const Chat = () => {
                         rel="noopener noreferrer"
                         className="mt-2 flex items-center gap-3 p-3 glass-input rounded-xl border border-[var(--color-glass-border)] hover:border-[var(--color-neon-cyan)]/40 transition-all group/doc"
                     >
-                        <div className="p-2 bg-[var(--color-neon-cyan)]/10 rounded-lg group-hover/doc:bg-[var(--color-neon-cyan)]/20 transition-colors">
+                        <div className="p-2 bg-[var(--color-neon-cyan)]/10 rounded-lg group-hover/doc:bg-[var(--color-neon-cyan)]/20 transition-colors shrink-0">
                             <FileText className="w-5 h-5 text-[var(--color-neon-cyan)]" />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-sm font-medium text-gray-200 truncate max-w-[180px]">{msg.fileName || 'Document'}</p>
+                            <p className="text-sm font-medium text-gray-200 truncate max-w-[160px]">{msg.fileName || 'Document'}</p>
                             <p className="text-[10px] text-gray-500">Click to download</p>
                         </div>
                     </a>
@@ -332,6 +340,24 @@ const Chat = () => {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
         >
+            {/* Hidden file inputs */}
+            <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={handleFileChange}
+                accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.txt"
+            />
+            {/* Camera input — mobile capture */}
+            <input
+                ref={cameraInputRef}
+                type="file"
+                className="hidden"
+                onChange={handleFileChange}
+                accept="image/*,video/*"
+                capture="environment"
+            />
+
             {/* Image Lightbox */}
             <AnimatePresence>
                 {lightboxUrl && (
@@ -343,7 +369,7 @@ const Chat = () => {
                         onClick={() => setLightboxUrl(null)}
                     >
                         <button
-                            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white bg-white/10 rounded-full transition-colors z-10"
+                            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white bg-white/10 rounded-full transition-colors z-10 touch-target flex items-center justify-center"
                             onClick={() => setLightboxUrl(null)}
                         >
                             <X className="w-6 h-6" />
@@ -355,7 +381,7 @@ const Chat = () => {
                             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                             src={lightboxUrl}
                             alt="Full size"
-                            className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl shadow-2xl"
+                            className="max-w-[92vw] max-h-[88vh] object-contain rounded-xl shadow-2xl"
                             onClick={(e) => e.stopPropagation()}
                         />
                     </motion.div>
@@ -363,7 +389,6 @@ const Chat = () => {
             </AnimatePresence>
 
             {isDragging && (
-
                 <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm border-2 border-dashed border-[var(--color-neon-cyan)] rounded-xl m-4 pointer-events-none">
                     <div className="flex flex-col items-center p-8 bg-[var(--color-glass)] rounded-2xl shadow-2xl space-y-4">
                         <FileUp className="w-16 h-16 text-[var(--color-neon-cyan)] animate-bounce" />
@@ -381,31 +406,41 @@ const Chat = () => {
                 isLoading={summaryLoading}
             />
 
+            {/* Upload progress bar */}
+            {isUploading && (
+                <div className="absolute top-0 left-0 right-0 z-20 h-0.5 bg-white/5">
+                    <div
+                        className="progress-bar h-full"
+                        style={{ width: `${uploadProgress}%` }}
+                    />
+                </div>
+            )}
+
             {/* Chat Header */}
-            <div className="px-6 py-3 glass-panel border-b border-[var(--color-glass-border)] z-10 flex items-center justify-between">
+            <div className="px-3 md:px-6 py-3 glass-panel border-b border-[var(--color-glass-border)] z-10 flex items-center justify-between shrink-0">
                 {activeChat === null ? (
                     <div className="flex items-center gap-3">
                         <div className="p-2 rounded-xl bg-[var(--color-neon-cyan)]/20 text-[var(--color-neon-cyan)] shadow-[0_0_10px_rgba(0,243,255,0.3)]">
                             <Globe className="w-5 h-5" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-bold neon-text-cyan leading-none">Global Nexus</h2>
-                            <p className="text-xs text-gray-500 mt-0.5">Public channel — visible to everyone</p>
+                            <h2 className="text-base md:text-lg font-bold neon-text-cyan leading-none">Global Nexus</h2>
+                            <p className="text-xs text-gray-500 mt-0.5 hidden sm:block">Public channel — visible to everyone</p>
                         </div>
                     </div>
                 ) : (
                     <div className="flex items-center gap-3">
-                        <div className="relative">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center overflow-hidden bg-gradient-to-br ${getAvatarGradient(targetUser?.username || 'U')} shadow-[0_0_10px_rgba(181,0,255,0.3)]`}>
+                        <div className="relative shrink-0">
+                            <div className={`w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center overflow-hidden bg-gradient-to-br ${getAvatarGradient(targetUser?.username || 'U')} shadow-[0_0_10px_rgba(181,0,255,0.3)]`}>
                                 {targetUser?.avatar ? (
-                                    <img src={`${BASE_URL}${targetUser.avatar}`} alt={targetUser.username} className="w-full h-full object-cover" />
+                                    <img src={`${BASE_URL}${targetUser.avatar}`} alt={targetUser.username} className="w-full h-full object-cover" loading="lazy" />
                                 ) : (
                                     <span className="uppercase font-bold text-white text-sm">{targetUser?.username?.charAt(0)}</span>
                                 )}
                             </div>
                         </div>
                         <div>
-                            <h2 className="text-lg font-bold neon-text-purple leading-none">{targetUser?.username}</h2>
+                            <h2 className="text-base md:text-lg font-bold neon-text-purple leading-none">{targetUser?.username}</h2>
                             <PresencePill userId={activeChat} username={targetUser?.username} />
                         </div>
                     </div>
@@ -415,7 +450,7 @@ const Chat = () => {
                 {activeMessages.length >= 5 && (
                     <button
                         onClick={handleSummarize}
-                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 glass-input rounded-full border border-[var(--color-neon-purple)]/20 hover:border-[var(--color-neon-purple)]/60 text-gray-400 hover:text-[var(--color-neon-purple)] transition-hover group"
+                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 glass-input rounded-full border border-[var(--color-neon-purple)]/20 hover:border-[var(--color-neon-purple)]/60 text-gray-400 hover:text-[var(--color-neon-purple)] transition-hover group touch-target"
                     >
                         <Sparkles className="w-3.5 h-3.5" />
                         <span className="hidden sm:block">Summarize</span>
@@ -424,22 +459,25 @@ const Chat = () => {
             </div>
 
             {/* Messages Area */}
-            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 relative">
-
+            <div
+                ref={scrollContainerRef}
+                className="flex-1 overflow-y-auto overscroll-contain p-3 md:p-6 space-y-5 relative scroll-touch"
+                style={{ WebkitOverflowScrolling: 'touch' }}
+            >
                 {/* Empty Chat State */}
                 {activeMessages.length === 0 && (
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="flex flex-col items-center justify-center h-full text-center pb-20 select-none"
+                        className="flex flex-col items-center justify-center h-full text-center pb-16 select-none"
                     >
-                        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[var(--color-neon-cyan)]/20 to-[var(--color-neon-purple)]/20 border border-[var(--color-glass-border)] flex items-center justify-center mb-5 shadow-[0_0_30px_rgba(0,243,255,0.1)]">
-                            <Globe className="w-10 h-10 text-[var(--color-neon-cyan)] opacity-60" />
+                        <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-[var(--color-neon-cyan)]/20 to-[var(--color-neon-purple)]/20 border border-[var(--color-glass-border)] flex items-center justify-center mb-4 shadow-[0_0_30px_rgba(0,243,255,0.1)]">
+                            <Globe className="w-8 h-8 md:w-10 md:h-10 text-[var(--color-neon-cyan)] opacity-60" />
                         </div>
-                        <h3 className="text-xl font-bold text-gray-300 mb-1">
+                        <h3 className="text-lg md:text-xl font-bold text-gray-300 mb-1">
                             {activeChat === null ? 'Welcome to Global Nexus' : `Start chatting with ${targetUser?.username}`}
                         </h3>
-                        <p className="text-sm text-gray-500 max-w-xs">
+                        <p className="text-sm text-gray-500 max-w-xs px-4">
                             {activeChat === null
                                 ? 'This is the beginning of the public channel. Say hello!'
                                 : 'Send your first message to kick things off.'}
@@ -452,13 +490,13 @@ const Chat = () => {
                     <motion.div
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="sticky top-0 z-20 w-full mb-6"
+                        className="sticky top-0 z-20 w-full mb-4"
                     >
                         <div className="glass-panel p-3 rounded-xl border-l-4 border-[var(--color-neon-cyan)] flex items-start gap-3 shadow-lg">
-                            <Pin className="w-5 h-5 text-[var(--color-neon-cyan)] mt-0.5 shrink-0" />
+                            <Pin className="w-4 h-4 text-[var(--color-neon-cyan)] mt-0.5 shrink-0" />
                             <div className="flex-1 min-w-0">
-                                <p className="text-xs font-bold text-[var(--color-neon-cyan)] uppercase tracking-wider mb-1">Pinned Messages ({pinnedMessages.length})</p>
-                                <div className="text-sm text-gray-300 truncate">
+                                <p className="text-xs font-bold text-[var(--color-neon-cyan)] uppercase tracking-wider mb-0.5">Pinned ({pinnedMessages.length})</p>
+                                <div className="text-xs text-gray-300 truncate">
                                     <span className="font-medium text-white">{pinnedMessages[pinnedMessages.length - 1].senderId?.username || 'User'}: </span>
                                     {pinnedMessages[pinnedMessages.length - 1].content || 'Media message'}
                                 </div>
@@ -478,9 +516,9 @@ const Chat = () => {
                         return (
                             <motion.div
                                 key={msg._id || index}
-                                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                                initial={{ opacity: 0, y: 16, scale: 0.97 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                                transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                                transition={{ type: "spring", stiffness: 350, damping: 28 }}
                                 className={`flex flex-col group relative ${isMe ? 'items-end' : 'items-start'}`}
                                 onMouseEnter={() => setHoveredMessageId(msg._id)}
                                 onMouseLeave={() => {
@@ -491,11 +529,11 @@ const Chat = () => {
                                 {/* Avatar + Name for other users */}
                                 {!isMe && (
                                     <div className="flex items-center gap-2 mb-1 ml-1">
-                                        <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden shrink-0">
+                                        <div className="w-5 h-5 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden shrink-0">
                                             {senderAvatar ? (
-                                                <img src={`${BASE_URL}${senderAvatar}`} alt={senderName} className="w-full h-full object-cover" />
+                                                <img src={`${BASE_URL}${senderAvatar}`} alt={senderName} className="w-full h-full object-cover" loading="lazy" />
                                             ) : (
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase">{senderName.charAt(0)}</span>
+                                                <span className="text-[9px] font-bold text-gray-400 uppercase">{senderName.charAt(0)}</span>
                                             )}
                                         </div>
                                         <span className="text-xs font-semibold text-gray-300">{senderName}</span>
@@ -503,34 +541,34 @@ const Chat = () => {
                                     </div>
                                 )}
 
-                                <div className={`relative flex items-center gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                                <div className={`relative flex items-center gap-1.5 md:gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                                     {/* Message Bubble */}
                                     <div
-                                        className={`relative p-3 md:p-4 rounded-2xl max-w-[85vw] md:max-w-[65vw] transition-all duration-200 ${isMe
+                                        className={`relative p-2.5 md:p-4 rounded-2xl max-w-[80vw] md:max-w-[65vw] transition-all duration-200 ${isMe
                                             ? 'bubble-own rounded-tr-sm text-white'
                                             : 'bubble-other rounded-tl-sm text-gray-100'
                                             } hover:brightness-110`}
                                     >
                                         {msg.isPinned && (
                                             <div className="absolute -top-2 -right-2 bg-[var(--color-dark-surface)] rounded-full p-1 border border-[var(--color-neon-cyan)] shadow-[0_0_10px_rgba(0,243,255,0.4)] z-10">
-                                                <Pin className="w-3 h-3 text-[var(--color-neon-cyan)]" />
+                                                <Pin className="w-2.5 h-2.5 text-[var(--color-neon-cyan)]" />
                                             </div>
                                         )}
-                                        {msg.content && <p className="text-[15px] whitespace-pre-wrap leading-relaxed">{msg.content}</p>}
+                                        {msg.content && <p className="text-[14px] md:text-[15px] whitespace-pre-wrap leading-relaxed">{msg.content}</p>}
                                         {renderMedia(msg)}
 
-                                        <div className={`flex items-center gap-1.5 mt-1.5 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`flex items-center gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
                                             {isMe && (
                                                 <span className="text-[10px] text-white/60">
                                                     {msg.createdAt ? format(new Date(msg.createdAt), 'HH:mm') : format(new Date(), 'HH:mm')}
                                                 </span>
                                             )}
                                             {isMe && activeChat !== null && (
-                                                <span className="ml-1">
+                                                <span className="ml-0.5">
                                                     {isRead ? (
-                                                        <CheckCheck className="w-3.5 h-3.5 text-blue-400 drop-shadow-[0_0_5px_rgba(96,165,250,0.8)]" />
+                                                        <CheckCheck className="w-3 h-3 text-blue-400 drop-shadow-[0_0_5px_rgba(96,165,250,0.8)]" />
                                                     ) : (
-                                                        <Check className="w-3.5 h-3.5 text-gray-400" />
+                                                        <Check className="w-3 h-3 text-gray-400" />
                                                     )}
                                                 </span>
                                             )}
@@ -560,13 +598,13 @@ const Chat = () => {
                                     </div>
 
                                     {/* Interaction Action Menu (Hover) */}
-                                    <div className={`flex items-center gap-1 transition-opacity duration-200 ${hoveredMessageId === msg._id ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                                    <div className={`flex items-center gap-0.5 transition-opacity duration-200 ${hoveredMessageId === msg._id ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                                         <div className="relative">
                                             <button
                                                 onClick={() => setShowReactionPickerFor(showReactionPickerFor === msg._id ? null : msg._id)}
                                                 className="p-1.5 bg-[var(--color-dark-surface)]/80 backdrop-blur rounded-full text-gray-400 hover:text-[var(--color-neon-cyan)] border border-white/5 hover:border-[var(--color-neon-cyan)]/30 transition-all shadow-lg"
                                             >
-                                                <Smile className="w-4 h-4" />
+                                                <Smile className="w-3.5 h-3.5" />
                                             </button>
 
                                             {/* Reaction Picker Popup */}
@@ -598,7 +636,7 @@ const Chat = () => {
                                             onClick={() => pinMessage(msg._id)}
                                             className={`p-1.5 bg-[var(--color-dark-surface)]/80 backdrop-blur rounded-full transition-all shadow-lg border hover:border-[var(--color-neon-purple)]/50 ${msg.isPinned ? 'text-[var(--color-neon-purple)] border-[var(--color-neon-purple)]/30' : 'text-gray-400 border-white/5 hover:text-[var(--color-neon-purple)]'}`}
                                         >
-                                            <Pin className="w-4 h-4" />
+                                            <Pin className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
                                 </div>
@@ -615,9 +653,9 @@ const Chat = () => {
                         <div className="glass-panel px-4 py-2.5 rounded-full flex items-center gap-3">
                             <span className="text-xs font-medium text-[var(--color-neon-cyan)]">{targetUser?.username || 'Someone'} is typing</span>
                             <div className="flex gap-1.5">
-                                <span className="w-1.5 h-1.5 bg-[var(--color-neon-cyan)] rounded-full animate-bounce shadow-[0_0_5px_rgba(0,243,255,0.8)]" style={{ animationDelay: '0ms' }}></span>
-                                <span className="w-1.5 h-1.5 bg-[var(--color-neon-cyan)] rounded-full animate-bounce shadow-[0_0_5px_rgba(0,243,255,0.8)]" style={{ animationDelay: '150ms' }}></span>
-                                <span className="w-1.5 h-1.5 bg-[var(--color-neon-cyan)] rounded-full animate-bounce shadow-[0_0_5px_rgba(0,243,255,0.8)]" style={{ animationDelay: '300ms' }}></span>
+                                <span className="w-1.5 h-1.5 bg-[var(--color-neon-cyan)] rounded-full animate-bounce shadow-[0_0_5px_rgba(0,243,255,0.8)]" style={{ animationDelay: '0ms' }} />
+                                <span className="w-1.5 h-1.5 bg-[var(--color-neon-cyan)] rounded-full animate-bounce shadow-[0_0_5px_rgba(0,243,255,0.8)]" style={{ animationDelay: '150ms' }} />
+                                <span className="w-1.5 h-1.5 bg-[var(--color-neon-cyan)] rounded-full animate-bounce shadow-[0_0_5px_rgba(0,243,255,0.8)]" style={{ animationDelay: '300ms' }} />
                             </div>
                         </div>
                     </motion.div>
@@ -633,18 +671,16 @@ const Chat = () => {
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.8, y: 10 }}
                         onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
-                        className="absolute bottom-24 right-6 z-30 p-3 rounded-full bg-gradient-to-br from-[var(--color-neon-cyan)] to-[var(--color-neon-purple)] text-white shadow-[0_0_20px_rgba(0,243,255,0.4)] hover:brightness-110 transition-all"
+                        className="absolute bottom-28 right-4 md:right-6 z-30 p-3 rounded-full bg-gradient-to-br from-[var(--color-neon-cyan)] to-[var(--color-neon-purple)] text-white shadow-[0_0_20px_rgba(0,243,255,0.4)] hover:brightness-110 transition-all touch-target flex items-center justify-center"
                         title="Scroll to bottom"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                        </svg>
+                        <ChevronDown className="w-4 h-4" />
                     </motion.button>
                 )}
             </AnimatePresence>
 
             {/* Smart Replies + Input Area */}
-            <div className="p-4 md:p-6 pt-0 bg-transparent z-10 w-full max-w-4xl mx-auto">
+            <div className="p-3 md:p-4 pt-0 bg-transparent z-10 w-full max-w-4xl mx-auto safe-bottom shrink-0">
 
                 {/* Smart Reply Suggestions */}
                 <SmartReplies
@@ -653,52 +689,75 @@ const Chat = () => {
                     onSelect={(s) => setContent(s)}
                 />
 
+                {/* File Preview */}
                 {filePreview && (
                     <motion.div
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={{ opacity: 0, y: 12 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="mb-3 p-3 glass-panel rounded-xl inline-flex items-center gap-3 border shadow-2xl relative"
+                        className="mb-3 p-3 glass-panel rounded-xl inline-flex items-center gap-3 border shadow-2xl relative max-w-full"
                     >
                         {file.type.startsWith('image/') ? (
-                            <img src={filePreview} alt="Preview" className="h-16 w-16 object-cover rounded shadow-md" />
+                            <img src={filePreview} alt="Preview" className="h-14 w-14 object-cover rounded shadow-md shrink-0" />
                         ) : (
-                            <div className="h-12 w-12 flex items-center justify-center bg-black/40 rounded shadow-inner">
-                                <FileText className="h-6 w-6 text-[var(--color-neon-cyan)]" />
+                            <div className="h-11 w-11 flex items-center justify-center bg-black/40 rounded shadow-inner shrink-0">
+                                <FileText className="h-5 w-5 text-[var(--color-neon-cyan)]" />
                             </div>
                         )}
-                        <div className="flex flex-col">
-                            <span className="text-sm font-medium text-white truncate max-w-[200px]">{file.name}</span>
+                        <div className="flex flex-col min-w-0">
+                            <span className="text-sm font-medium text-white truncate max-w-[180px] md:max-w-[260px]">{file.name}</span>
                             <span className="text-xs text-[var(--color-neon-purple)]">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                            {/* Inline upload progress bar */}
+                            {isUploading && (
+                                <div className="mt-1.5 w-full h-1 bg-white/10 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-gradient-to-r from-[var(--color-neon-cyan)] to-[var(--color-neon-purple)] transition-all duration-300 rounded-full"
+                                        style={{ width: `${uploadProgress}%` }}
+                                    />
+                                </div>
+                            )}
                         </div>
                         <button
                             onClick={clearFile}
                             className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-400 rounded-full p-1 text-white shadow-[0_0_10px_rgba(239,68,68,0.5)] transition-all"
                         >
-                            <X className="w-4 h-4" />
+                            <X className="w-3.5 h-3.5" />
                         </button>
                     </motion.div>
                 )}
 
                 <form onSubmit={submitMessage} className="flex relative items-end w-full">
-                    <div className="w-full glass-input rounded-2xl flex items-end p-2 relative shadow-2xl">
+                    <div className="w-full glass-input rounded-2xl flex items-end p-1.5 md:p-2 relative shadow-2xl gap-1">
+
                         {/* File Upload Button */}
-                        <div className="relative shrink-0 mr-2">
-                            <input type="file" id="file-upload" className="hidden" onChange={handleFileChange} accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.txt" />
-                            <label htmlFor="file-upload" className="p-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-[var(--color-neon-cyan)] rounded-xl cursor-pointer transition-all block border border-transparent hover:border-white/10 flex items-center justify-center h-12 w-12" title="Attach media">
-                                <FileUp className="w-5 h-5 flex-shrink-0" />
-                            </label>
-                        </div>
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="p-2.5 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-[var(--color-neon-cyan)] rounded-xl cursor-pointer transition-all border border-transparent hover:border-white/10 touch-target flex items-center justify-center shrink-0"
+                            title="Attach file"
+                        >
+                            <FileUp className="w-4 h-4" />
+                        </button>
+
+                        {/* Camera Capture Button — mobile only */}
+                        <button
+                            type="button"
+                            onClick={() => cameraInputRef.current?.click()}
+                            className="md:hidden p-2.5 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-[var(--color-neon-cyan)] rounded-xl cursor-pointer transition-all border border-transparent hover:border-white/10 touch-target flex items-center justify-center shrink-0"
+                            title="Camera"
+                        >
+                            <Camera className="w-4 h-4" />
+                        </button>
 
                         {/* Textarea */}
                         <textarea
                             value={content}
                             onChange={handleTyping}
                             placeholder="Type your message..."
-                            className="flex-1 bg-transparent border-none text-gray-200 focus:ring-0 resize-none overflow-y-auto min-h-[48px] max-h-32 py-3 px-2 outline-none placeholder-gray-500"
+                            className="flex-1 bg-transparent border-none text-gray-200 focus:ring-0 resize-none min-h-[44px] max-h-32 py-2.5 px-2 outline-none placeholder-gray-500 text-sm md:text-base leading-relaxed"
                             rows={1}
                             style={{ height: 'auto', outline: 'none', boxShadow: 'none' }}
                             onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
+                                if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
                                     e.preventDefault();
                                     submitMessage(e);
                                 }
@@ -712,7 +771,7 @@ const Chat = () => {
                                     initial={{ opacity: 0, scale: 0.9 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     exit={{ opacity: 0, scale: 0.9 }}
-                                    className="flex items-center gap-1 shrink-0 mr-1"
+                                    className="hidden sm:flex items-center gap-1 shrink-0 mr-1"
                                 >
                                     {/* Tone Selector */}
                                     <div className="relative">
@@ -765,14 +824,14 @@ const Chat = () => {
                         <button
                             type="submit"
                             disabled={(!content.trim() && !file) || isUploading}
-                            className={`p-3 rounded-xl shrink-0 ml-1 transition-all flex items-center justify-center h-12 w-12 overflow-hidden relative group ${(!content.trim() && !file) || isUploading
+                            className={`p-2.5 rounded-xl shrink-0 transition-all touch-target flex items-center justify-center overflow-hidden relative group ${(!content.trim() && !file) || isUploading
                                 ? 'bg-black/30 text-gray-600 cursor-not-allowed'
                                 : 'bg-gradient-to-r from-[var(--color-neon-cyan)] to-[var(--color-neon-purple)] text-white hover:brightness-110 shadow-[0_0_15px_rgba(0,243,255,0.3)]'
                                 }`}
                         >
                             {isUploading
-                                ? <span className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                                : <Send className={`w-5 h-5 transition-transform duration-300 ${!((!content.trim() && !file) || isUploading) ? 'group-hover:translate-x-1 group-hover:-translate-y-1 group-active:scale-95' : ''}`} />}
+                                ? <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                : <Send className={`w-4 h-4 transition-transform duration-300 ${!((!content.trim() && !file) || isUploading) ? 'group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-active:scale-95' : ''}`} />}
                         </button>
                     </div>
                 </form>

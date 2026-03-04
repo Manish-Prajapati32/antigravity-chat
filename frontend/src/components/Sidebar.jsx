@@ -1,6 +1,6 @@
 import { useChatStore } from '../store/useChatStore';
 import { useAuthStore } from '../store/useAuthStore';
-import { Globe, Users, MessageSquare, UserPlus, Check, X, Clock, Search } from 'lucide-react';
+import { Globe, Users, MessageSquare, UserPlus, Check, X, Clock, Search, ChevronLeft } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { BASE_URL } from '../config';
@@ -11,7 +11,7 @@ function cn(...inputs) {
     return twMerge(clsx(inputs));
 }
 
-const Sidebar = () => {
+const Sidebar = ({ onClose }) => {
     const {
         users,
         invitations,
@@ -31,11 +31,13 @@ const Sidebar = () => {
     const handleGlobalChat = () => {
         setActiveChat(null);
         useChatStore.getState().fetchGlobalMessages();
+        onClose?.();
     };
 
     const handlePrivateChat = (userId) => {
         setActiveChat(userId);
         fetchPrivateMessages(userId);
+        onClose?.();
     };
 
     // Derived states
@@ -64,16 +66,27 @@ const Sidebar = () => {
     );
 
     return (
-        <div className="w-80 h-full glass-panel border-r border-[var(--color-glass-border)] flex flex-col z-20 transition-all duration-300 shadow-2xl relative">
+        <div className="w-72 md:w-80 h-full glass-panel border-r border-[var(--color-glass-border)] flex flex-col z-20 shadow-2xl relative">
             {/* Decorative edge highlight */}
-            <div className="absolute top-0 right-0 w-[1px] h-full bg-gradient-to-b from-transparent via-[var(--color-glass-highlight)] to-transparent pointer-events-none"></div>
+            <div className="absolute top-0 right-0 w-[1px] h-full bg-gradient-to-b from-transparent via-[var(--color-glass-highlight)] to-transparent pointer-events-none" />
 
+            {/* Sidebar Header with Close Button (mobile) */}
             <div className="p-4 border-b border-[var(--color-glass-border)] bg-black/20">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
                         <MessageSquare className="w-4 h-4" />
                         Chat Rooms
                     </h2>
+                    {/* Close button — mobile only */}
+                    {onClose && (
+                        <button
+                            onClick={onClose}
+                            className="md:hidden p-1.5 text-gray-500 hover:text-gray-200 transition-colors rounded-lg hover:bg-white/5"
+                            aria-label="Close sidebar"
+                        >
+                            <ChevronLeft className="w-5 h-5" />
+                        </button>
+                    )}
                 </div>
 
                 <div className="relative group">
@@ -85,11 +98,12 @@ const Sidebar = () => {
                         placeholder="Search users..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-3 py-2 bg-black/30 border border-[var(--color-glass-border)] rounded-lg focus:outline-none focus:border-[var(--color-neon-cyan)] focus:ring-1 focus:ring-[var(--color-neon-cyan)] transition-all text-sm placeholder-gray-500 shadow-inner"
+                        className="w-full pl-10 pr-3 py-2.5 bg-black/30 border border-[var(--color-glass-border)] rounded-lg focus:outline-none focus:border-[var(--color-neon-cyan)] focus:ring-1 focus:ring-[var(--color-neon-cyan)] transition-all text-sm placeholder-gray-500 shadow-inner"
                     />
                 </div>
             </div>
 
+            {/* Global Nexus Button */}
             <div className="p-2">
                 <button
                     onClick={handleGlobalChat}
@@ -110,7 +124,8 @@ const Sidebar = () => {
                 </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4 pb-4">
+            {/* Scrollable user list */}
+            <div className="flex-1 overflow-y-auto scroll-touch overscroll-contain space-y-4 pb-safe-bottom">
 
                 {/* Pending Incoming Invitations */}
                 {pendingIncoming.length > 0 && (
@@ -127,7 +142,7 @@ const Sidebar = () => {
                                     <div className="flex items-center gap-2 overflow-hidden">
                                         <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center shrink-0 overflow-hidden">
                                             {inv.sender.avatar ? (
-                                                <img src={`${BASE_URL}${inv.sender.avatar}`} alt={inv.sender.username} className="w-full h-full object-cover" />
+                                                <img src={`${BASE_URL}${inv.sender.avatar}`} alt={inv.sender.username} className="w-full h-full object-cover" loading="lazy" />
                                             ) : (
                                                 <span className="uppercase font-bold text-gray-400 text-xs">{inv.sender.username.charAt(0)}</span>
                                             )}
@@ -137,10 +152,18 @@ const Sidebar = () => {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0">
-                                        <button onClick={() => acceptInvitation(inv._id)} className="p-1.5 bg-green-500/20 text-green-400 rounded hover:bg-green-500/40 transition">
+                                        <button
+                                            onClick={() => acceptInvitation(inv._id)}
+                                            className="p-2 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500/40 transition touch-target flex items-center justify-center"
+                                            aria-label="Accept"
+                                        >
                                             <Check className="w-4 h-4" />
                                         </button>
-                                        <button onClick={() => rejectInvitation(inv._id)} className="p-1.5 bg-red-500/20 text-red-400 rounded hover:bg-red-500/40 transition">
+                                        <button
+                                            onClick={() => rejectInvitation(inv._id)}
+                                            className="p-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/40 transition touch-target flex items-center justify-center"
+                                            aria-label="Decline"
+                                        >
                                             <X className="w-4 h-4" />
                                         </button>
                                     </div>
@@ -175,32 +198,32 @@ const Sidebar = () => {
                                             : "bg-transparent hover:bg-[var(--color-dark-surface)]/80 border-transparent"
                                     )}
                                 >
-                                    <div className="relative">
+                                    <div className="relative shrink-0">
                                         <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden">
                                             {u.avatar ? (
-                                                <img src={`${BASE_URL}${u.avatar}`} alt={u.username} className="w-full h-full object-cover" />
+                                                <img src={`${BASE_URL}${u.avatar}`} alt={u.username} className="w-full h-full object-cover" loading="lazy" />
                                             ) : (
                                                 <span className="uppercase font-bold text-gray-400">{u.username.charAt(0)}</span>
                                             )}
                                         </div>
                                         {isOnline && (
-                                            <span className="absolute bottom-0 right-0 w-3 h-3 bg-[#00ff88] rounded-full shadow-[0_0_8px_#00ff88] border-2 border-[var(--color-dark-surface)] transition-all"></span>
+                                            <span className="absolute bottom-0 right-0 w-3 h-3 bg-[#00ff88] rounded-full shadow-[0_0_8px_#00ff88] border-2 border-[var(--color-dark-surface)] transition-all" />
                                         )}
                                     </div>
 
-                                    <div className="flex-1 text-left truncate">
-                                        <div className={cn("font-medium truncate flex items-center justify-between", isActive ? "text-white" : "text-gray-300 group-hover:text-white")}>
-                                            <span>{u.username}</span>
+                                    <div className="flex-1 text-left min-w-0">
+                                        <div className={cn("font-medium truncate flex items-center justify-between gap-1", isActive ? "text-white" : "text-gray-300 group-hover:text-white")}>
+                                            <span className="truncate">{u.username}</span>
                                             {unreadCount > 0 && (
-                                                <span className="flex items-center justify-center min-w-[1.25rem] h-5 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full ml-2 shadow-[0_0_8px_#ef4444]">
-                                                    {unreadCount}
+                                                <span className="shrink-0 flex items-center justify-center min-w-[1.4rem] h-5 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full shadow-[0_0_10px_rgba(239,68,68,0.7)] animate-pulse">
+                                                    {unreadCount > 99 ? '99+' : unreadCount}
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="text-xs truncate flex items-center justify-between">
-                                            <PresencePill userId={u._id} username={u.username} className="flex-1" />
+                                        <div className="text-xs truncate flex items-center justify-between gap-1">
+                                            <PresencePill userId={u._id} username={u.username} className="flex-1 min-w-0" />
                                             {unreadCount > 0 && (
-                                                <span className="text-red-400 font-medium">New message{unreadCount > 1 ? 's' : ''}</span>
+                                                <span className="shrink-0 text-red-400 font-medium text-[10px]">New</span>
                                             )}
                                         </div>
                                     </div>
@@ -236,16 +259,16 @@ const Sidebar = () => {
                                             <div className="relative shrink-0">
                                                 <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${u.username.charCodeAt(0) % 2 === 0 ? 'from-[var(--color-neon-cyan)] to-blue-700' : 'from-[var(--color-neon-purple)] to-pink-700'} flex items-center justify-center overflow-hidden shadow-md`}>
                                                     {u.avatar ? (
-                                                        <img src={`${BASE_URL}${u.avatar}`} alt={u.username} className="w-full h-full object-cover" />
+                                                        <img src={`${BASE_URL}${u.avatar}`} alt={u.username} className="w-full h-full object-cover" loading="lazy" />
                                                     ) : (
                                                         <span className="uppercase font-bold text-white text-xs">{u.username.charAt(0)}</span>
                                                     )}
                                                 </div>
                                                 {isOnline && (
-                                                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#00ff88] rounded-full shadow-[0_0_6px_#00ff88] border-2 border-[var(--color-dark-bg)]"></span>
+                                                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#00ff88] rounded-full shadow-[0_0_6px_#00ff88] border-2 border-[var(--color-dark-bg)]" />
                                                 )}
                                             </div>
-                                            <div className="truncate text-sm font-medium text-gray-300 group-hover:text-white">
+                                            <div className="truncate text-sm font-medium text-gray-300">
                                                 {u.username}
                                             </div>
                                         </div>
@@ -256,7 +279,7 @@ const Sidebar = () => {
                                             ) : (
                                                 <button
                                                     onClick={() => sendInvitation(u._id)}
-                                                    className="text-xs text-[var(--color-neon-cyan)] bg-[var(--color-neon-cyan)]/10 hover:bg-[var(--color-neon-cyan)]/20 px-2 py-1 rounded border border-[var(--color-neon-cyan)]/20 transition-colors"
+                                                    className="text-xs text-[var(--color-neon-cyan)] bg-[var(--color-neon-cyan)]/10 hover:bg-[var(--color-neon-cyan)]/20 px-2.5 py-1.5 rounded border border-[var(--color-neon-cyan)]/20 transition-colors"
                                                 >
                                                     Invite
                                                 </button>
@@ -268,6 +291,9 @@ const Sidebar = () => {
                         </div>
                     </div>
                 )}
+
+                {/* Bottom spacer for safe area */}
+                <div className="pb-4" />
             </div>
         </div>
     );

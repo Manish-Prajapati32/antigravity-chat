@@ -143,7 +143,54 @@
     background-size: 200% 100%;
     animation: shimmer 1.6s infinite;
   }
+
+  /* ─── Mobile Layout Utilities ─── */
+  .h-screen-mobile {
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .min-h-screen-mobile {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  /* Safe area padding (iOS notch + home indicator) */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  /* Overscroll containment to prevent mobile browser bounce */
+  .overscroll-contain {
+    overscroll-behavior: contain;
+  }
+
+  /* Smooth touch scrolling */
+  .scroll-touch {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+  }
+
+  /* Upload progress bar */
+  .progress-bar {
+    height: 3px;
+    background: linear-gradient(90deg, var(--color-neon-cyan), var(--color-neon-purple));
+    border-radius: 9999px;
+    box-shadow: 0 0 8px rgba(0, 243, 255, 0.5);
+    transition: width 0.3s ease;
+  }
+
+  /* Mobile-friendly touch targets */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
+
 
 /* ─── Animations ────────────────────────────────────────── */
 
@@ -257,8 +304,41 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Prevent horizontal scroll */
+  overflow-x: hidden;
+}
+
+/* Prevent double-tap zoom on interactive elements */
+button,
+a,
+label,
+input,
+textarea,
+select {
+  touch-action: manipulation;
+}
+
+/* Reduce heavy animations on devices that request it */
+@media (prefers-reduced-motion: reduce) {
+  .animate-ambient {
+    animation: none !important;
+    background: var(--color-dark-bg) !important;
+  }
+
+  .orb-1,
+  .orb-2,
+  .orb-3 {
+    animation: none !important;
+  }
+
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* ─── Scrollbar ─────────────────────────────────────── */
