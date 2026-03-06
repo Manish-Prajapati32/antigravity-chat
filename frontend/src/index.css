@@ -148,6 +148,7 @@
   .h-screen-mobile {
     height: 100vh;
     height: 100dvh;
+    height: var(--viewport-height, 100dvh);
   }
 
   .min-h-screen-mobile {
@@ -188,6 +189,21 @@
   .touch-target {
     min-height: 44px;
     min-width: 44px;
+  }
+
+  /* Bottom padding to clear the mobile nav bar (56px bar + safe area) */
+  .pb-safe-mobile {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Touch press scale feedback */
+  .touch-press {
+    transition: transform 100ms ease, opacity 100ms ease;
+  }
+
+  .touch-press:active {
+    transform: scale(0.97);
+    opacity: 0.85;
   }
 }
 
@@ -319,6 +335,16 @@ input,
 textarea,
 select {
   touch-action: manipulation;
+}
+
+/* Prevent iOS auto-zoom on input focus (requires font-size >= 16px on mobile) */
+@media (max-width: 767px) {
+
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }
 
 /* Reduce heavy animations on devices that request it */

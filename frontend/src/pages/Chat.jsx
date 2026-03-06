@@ -14,7 +14,7 @@ import { summarizeConversation, getSmartReplies, rephraseMessage } from '../lib/
 import PresencePill from '../components/PresencePill';
 import SmartReplies from '../components/SmartReplies';
 import AISummaryModal from '../components/AISummaryModal';
-import VoiceRecorder from '../components/VoiceRecorder';
+
 import MediaGallery from '../components/MediaGallery';
 
 const EMOJI_LIST = ['👍', '❤️', '🔥', '😂', '😮', '🎉'];
@@ -52,7 +52,7 @@ const Chat = () => {
     const [showScrollBtn, setShowScrollBtn] = useState(false);
     const isTouchDevice = typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches;
     const [lightboxUrl, setLightboxUrl] = useState(null);
-    const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+
     const [showGallery, setShowGallery] = useState(false);
     // AI state
     const [showSummary, setShowSummary] = useState(false);
@@ -186,36 +186,7 @@ const Chat = () => {
         setSummaryLoading(false);
     };
 
-    // ── Voice Message Upload ─────────────────────────────────
-    const handleVoiceReady = async (blob, durationSecs) => {
-        setIsUploading(true);
-        setUploadProgress(0);
-        setShowVoiceRecorder(false);
-        try {
-            const formData = new FormData();
-            const ext = blob.type.includes('ogg') ? 'ogg' : blob.type.includes('mp4') ? 'mp4' : 'webm';
-            formData.append('file', blob, `voice_${Date.now()}.${ext}`);
 
-            const res = await axios.post(`${API_URL}/upload`, formData, {
-                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
-                onUploadProgress: (ev) => setUploadProgress(Math.round((ev.loaded * 100) / ev.total))
-            });
-
-            sendMessage({
-                receiverId: activeChat,
-                content: '',
-                fileUrl: res.data.fileUrl,
-                fileType: 'audio',
-                fileName: `voice_${durationSecs}s.${ext}`
-            });
-            playSend();
-        } catch (err) {
-            console.error('Voice upload failed', err);
-        } finally {
-            setIsUploading(false);
-            setUploadProgress(0);
-        }
-    };
 
     const handleRephrase = async () => {
         if (!content.trim()) return;
@@ -826,22 +797,7 @@ const Chat = () => {
                     onSelect={(s) => setContent(s)}
                 />
 
-                {/* Voice Recorder (shown when mic active) */}
-                <AnimatePresence>
-                    {showVoiceRecorder && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 8 }}
-                            className="mb-3"
-                        >
-                            <VoiceRecorder
-                                onVoiceReady={handleVoiceReady}
-                                onCancel={() => setShowVoiceRecorder(false)}
-                            />
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+
 
                 {/* File Preview */}
                 {filePreview && (
@@ -902,19 +858,7 @@ const Chat = () => {
                             <Camera className="w-4 h-4" />
                         </button>
 
-                        {/* Voice Recorder Toggle */}
-                        {!showVoiceRecorder && (
-                            <button
-                                type="button"
-                                onClick={() => setShowVoiceRecorder(true)}
-                                className="p-2.5 bg-white/5 hover:bg-[var(--color-neon-purple)]/10 text-gray-400 hover:text-[var(--color-neon-purple)] rounded-xl cursor-pointer transition-all border border-transparent hover:border-[var(--color-neon-purple)]/20 touch-target flex items-center justify-center shrink-0"
-                                title="Voice message"
-                            >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                                </svg>
-                            </button>
-                        )}
+
 
                         {/* Textarea */}
                         <textarea

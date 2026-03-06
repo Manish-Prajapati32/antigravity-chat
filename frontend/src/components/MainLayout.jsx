@@ -1,8 +1,9 @@
 import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
-import { LogOut, User as UserIcon, Bell, X, Check, Menu } from 'lucide-react';
+import { LogOut, Bell, X, Check, Menu } from 'lucide-react';
 import Sidebar from './Sidebar';
-import { useEffect, useState } from 'react';
+import MobileNavBar from './MobileNavBar';
+import { useEffect, useState, useRef } from 'react';
 import { BASE_URL } from '../config';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -12,6 +13,10 @@ const MainLayout = ({ children }) => {
     const { connectSocket, disconnectSocket, fetchUsers, fetchGlobalMessages, fetchInvitations, invitations, acceptInvitation, rejectInvitation } = useChatStore();
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    // Swipe-to-open sidebar
+    const touchStartX = useRef(null);
+    const touchStartY = useRef(null);
 
     // Count pending incoming invitations
     const pendingCount = invitations.filter(inv => inv.status === 'pending' && inv.receiver._id === user?._id).length;
@@ -38,8 +43,34 @@ const MainLayout = ({ children }) => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    // ── Swipe from left edge → open sidebar (mobile) ────────────
+    const handleTouchStart = (e) => {
+        touchStartX.current = e.touches[0].clientX;
+        touchStartY.current = e.touches[0].clientY;
+    };
+
+    const handleTouchEnd = (e) => {
+        if (touchStartX.current === null) return;
+        const dx = e.changedTouches[0].clientX - touchStartX.current;
+        const dy = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
+        // Only open if: swipe right at least 60px, started from left 30px, mostly horizontal
+        if (dx > 60 && touchStartX.current < 30 && dy < 80 && window.innerWidth < 768) {
+            setIsSidebarOpen(true);
+        }
+        // Close on left-swipe if sidebar is open
+        if (dx < -60 && isSidebarOpen && dy < 80) {
+            setIsSidebarOpen(false);
+        }
+        touchStartX.current = null;
+        touchStartY.current = null;
+    };
+
     return (
-        <div className="flex h-screen-mobile overflow-hidden animate-ambient relative">
+        <div
+            className="flex h-screen-mobile overflow-hidden animate-ambient relative"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+        >
             {/* Mobile Sidebar Overlay backdrop */}
             <AnimatePresence>
                 {isSidebarOpen && (
@@ -87,6 +118,7 @@ const MainLayout = ({ children }) => {
                     </div>
 
                     <div className="flex items-center gap-2 md:gap-4">
+                        {/* Notification bell — desktop only (mobile uses bottom nav) */}
                         <button
                             onClick={() => setIsNotificationsOpen(true)}
                             className="relative p-2 text-gray-400 hover:text-[var(--color-neon-cyan)] transition-colors rounded-full hover:bg-[var(--color-dark-surface)] touch-target flex items-center justify-center"
@@ -124,9 +156,11 @@ const MainLayout = ({ children }) => {
                     </div>
                 </header>
 
-                {/* Chat Area */}
+                {/* Chat Area — has bottom padding on mobile to clear the bottom nav bar */}
                 <main className="flex-1 relative overflow-hidden">
-                    {children}
+                    <div className="h-full overflow-hidden pb-safe-mobile md:pb-0">
+                        {children}
+                    </div>
                 </main>
 
                 {/* Notification Center Modal */}
@@ -193,6 +227,13 @@ const MainLayout = ({ children }) => {
                     )}
                 </AnimatePresence>
             </div>
+
+            {/* Mobile Bottom Navigation Bar */}
+            <MobileNavBar
+                onOpenSidebar={() => setIsSidebarOpen(true)}
+                onOpenNotifications={() => setIsNotificationsOpen(true)}
+                pendingCount={pendingCount}
+            />
         </div>
     );
 };
