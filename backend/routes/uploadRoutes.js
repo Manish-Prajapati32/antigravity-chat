@@ -12,7 +12,6 @@ const storage = multer.diskStorage({
         cb(null, 'uploads/');
     },
     filename(req, file, cb) {
-        // Sanitize filename and make it unique
         const uniqueSuffix = crypto.randomBytes(8).toString('hex');
         const ext = path.extname(file.originalname);
         const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
@@ -21,12 +20,24 @@ const storage = multer.diskStorage({
 });
 
 function checkFileType(file, cb) {
-    // Allowed ext
-    const filetypes = /jpeg|jpg|png|gif|mp4|webm|mp3|wav|pdf|docx|txt/;
+    // Allowed extensions — includes webm/ogg/m4a for voice recordings
+    const filetypes = /jpeg|jpg|png|gif|mp4|webm|mp3|wav|ogg|m4a|aac|pdf|docx|txt/;
     const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = filetypes.test(file.mimetype);
 
-    if (extname && mimetype) {
+    // Allow by MIME type — audio/webm is the MediaRecorder default on Chrome/Firefox
+    const allowedMimes = [
+        'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+        'video/mp4', 'video/webm',
+        'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/webm',
+        'audio/ogg', 'audio/m4a', 'audio/aac', 'audio/mp4',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain'
+    ];
+    const mimeOk = allowedMimes.includes(file.mimetype);
+
+    if (extname || mimeOk) {
         return cb(null, true);
     } else {
         cb(new Error('File format not supported!'));
@@ -46,10 +57,8 @@ const upload = multer({
 router.post('/', protect, (req, res) => {
     upload.single('file')(req, res, (err) => {
         if (err instanceof multer.MulterError) {
-            // A Multer error occurred when uploading.
             return res.status(400).json({ message: `Multer Error: ${err.message}` });
         } else if (err) {
-            // An unknown error occurred when uploading.
             return res.status(400).json({ message: err.message });
         }
 

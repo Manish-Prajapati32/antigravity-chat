@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useChatStore } from '../store/useChatStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { Send, FileUp, FileText, X, Pin, Smile, Check, CheckCheck, Globe, Sparkles, Wand2, ChevronDown, Camera, Images } from 'lucide-react';
+import { Send, FileUp, FileText, X, Pin, Smile, Check, CheckCheck, Globe, Sparkles, Wand2, ChevronDown, Camera, Images, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
@@ -32,7 +32,8 @@ const Chat = () => {
         typingUsers,
         reactToMessage,
         pinMessage,
-        markAsRead
+        markAsRead,
+        deleteUserMessage
     } = useChatStore();
     const { user: currentUser, token } = useAuthStore();
     const { soundEnabled } = useSettingsStore();
@@ -45,8 +46,11 @@ const Chat = () => {
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
     const [hoveredMessageId, setHoveredMessageId] = useState(null);
+    const [tappedMessageId, setTappedMessageId] = useState(null);
     const [showReactionPickerFor, setShowReactionPickerFor] = useState(null);
+    const [showDeleteMenuFor, setShowDeleteMenuFor] = useState(null);
     const [showScrollBtn, setShowScrollBtn] = useState(false);
+    const isTouchDevice = typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches;
     const [lightboxUrl, setLightboxUrl] = useState(null);
     const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
     const [showGallery, setShowGallery] = useState(false);
@@ -131,6 +135,20 @@ const Chat = () => {
         };
     }, [sendIdleStatus]);
 
+    // ── Mobile: dismiss tapped message actions on outside tap ───
+    useEffect(() => {
+        if (!isTouchDevice) return;
+        const handleOutsideTap = (e) => {
+            if (!e.target.closest('[data-msg-bubble]')) {
+                setTappedMessageId(null);
+                setShowReactionPickerFor(null);
+                setShowDeleteMenuFor(null);
+            }
+        };
+        document.addEventListener('touchstart', handleOutsideTap, { passive: true });
+        return () => document.removeEventListener('touchstart', handleOutsideTap);
+    }, [isTouchDevice]);
+
     // ── Sound on new incoming message ────────────────────────
     const prevLengthRef = useRef(activeMessages.length);
     useEffect(() => {
@@ -175,7 +193,6 @@ const Chat = () => {
         setShowVoiceRecorder(false);
         try {
             const formData = new FormData();
-            // Give the blob a meaningful filename
             const ext = blob.type.includes('ogg') ? 'ogg' : blob.type.includes('mp4') ? 'mp4' : 'webm';
             formData.append('file', blob, `voice_${Date.now()}.${ext}`);
 
@@ -578,11 +595,25 @@ const Chat = () => {
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 transition={{ type: "spring", stiffness: 350, damping: 28 }}
                                 className={`flex flex-col group relative ${isMe ? 'items-end' : 'items-start'}`}
-                                onMouseEnter={() => setHoveredMessageId(msg._id)}
+                                onMouseEnter={() => !isTouchDevice && setHoveredMessageId(msg._id)}
                                 onMouseLeave={() => {
-                                    setHoveredMessageId(null);
-                                    if (showReactionPickerFor === msg._id) setShowReactionPickerFor(null);
+                                    if (!isTouchDevice) {
+                                        setHoveredMessageId(null);
+                                        if (showReactionPickerFor === msg._id) setShowReactionPickerFor(null);
+                                        if (showDeleteMenuFor === msg._id) setShowDeleteMenuFor(null);
+                                    }
                                 }}
+                                onClick={() => {
+                                    if (isTouchDevice) {
+                                        // Toggle message actions on tap
+                                        setTappedMessageId(prev => prev === msg._id ? null : msg._id);
+                                        if (tappedMessageId !== msg._id) {
+                                            setShowReactionPickerFor(null);
+                                            setShowDeleteMenuFor(null);
+                                        }
+                                    }
+                                }}
+                                data-msg-bubble="true"
                             >
                                 {/* Avatar + Name for other users */}
                                 {!isMe && (
@@ -612,8 +643,12 @@ const Chat = () => {
                                                 <Pin className="w-2.5 h-2.5 text-[var(--color-neon-cyan)]" />
                                             </div>
                                         )}
-                                        {msg.content && <p className="text-[14px] md:text-[15px] whitespace-pre-wrap leading-relaxed">{msg.content}</p>}
-                                        {renderMedia(msg)}
+                                        {msg.content && (
+                                            <p className={`text-[14px] md:text-[15px] whitespace-pre-wrap leading-relaxed ${msg.isDeletedForAll ? 'italic text-white/50' : ''}`}>
+                                                {msg.content}
+                                            </p>
+                                        )}
+                                        {!msg.isDeletedForAll && renderMedia(msg)}
 
                                         <div className={`flex items-center gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
                                             {isMe && (
@@ -655,8 +690,8 @@ const Chat = () => {
                                         )}
                                     </div>
 
-                                    {/* Interaction Action Menu (Hover) */}
-                                    <div className={`flex items-center gap-0.5 transition-opacity duration-200 ${hoveredMessageId === msg._id ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                                    {/* Interaction Action Menu (Hover on desktop, Tap on mobile) */}
+                                    <div className={`flex items-center gap-0.5 transition-opacity duration-200 ${(hoveredMessageId === msg._id || tappedMessageId === msg._id) ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                                         <div className="relative">
                                             <button
                                                 onClick={() => setShowReactionPickerFor(showReactionPickerFor === msg._id ? null : msg._id)}
@@ -696,6 +731,43 @@ const Chat = () => {
                                         >
                                             <Pin className="w-3.5 h-3.5" />
                                         </button>
+
+                                        {/* Delete Button Menu */}
+                                        <div className="relative">
+                                            <button
+                                                onClick={() => setShowDeleteMenuFor(showDeleteMenuFor === msg._id ? null : msg._id)}
+                                                className="p-1.5 bg-[var(--color-dark-surface)]/80 backdrop-blur rounded-full text-gray-400 hover:text-red-400 border border-white/5 hover:border-red-500/30 transition-all shadow-lg"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+
+                                            <AnimatePresence>
+                                                {showDeleteMenuFor === msg._id && (
+                                                    <motion.div
+                                                        initial={{ opacity: 0, scale: 0.8 }}
+                                                        animate={{ opacity: 1, scale: 1 }}
+                                                        exit={{ opacity: 0, scale: 0.8 }}
+                                                        className={`absolute top-full mt-2 ${isMe ? 'right-0' : 'left-0'} z-30 glass-panel border border-[var(--color-glass-highlight)] p-2 rounded-2xl flex flex-col gap-1 shadow-2xl min-w-[150px]`}
+                                                    >
+                                                        <button
+                                                            onClick={() => { deleteUserMessage(msg._id, 'me'); setShowDeleteMenuFor(null); }}
+                                                            className="text-xs text-left px-3 py-2 hover:bg-white/10 rounded-xl flex items-center justify-between text-gray-300 transition-colors"
+                                                        >
+                                                            Delete for me <Trash2 className="w-3.5 h-3.5 opacity-70" />
+                                                        </button>
+
+                                                        {isMe && !msg.isDeletedForAll && (
+                                                            <button
+                                                                onClick={() => { deleteUserMessage(msg._id, 'everyone'); setShowDeleteMenuFor(null); }}
+                                                                className="text-xs text-left px-3 py-2 hover:bg-red-500/20 text-red-400 rounded-xl flex items-center justify-between transition-colors mt-1 border border-transparent hover:border-red-500/30"
+                                                            >
+                                                                Delete for everyone <Trash2 className="w-3.5 h-3.5 opacity-70" />
+                                                            </button>
+                                                        )}
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </div>
                                     </div>
                                 </div>
                             </motion.div>
@@ -867,7 +939,7 @@ const Chat = () => {
                                     initial={{ opacity: 0, scale: 0.9 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     exit={{ opacity: 0, scale: 0.9 }}
-                                    className="hidden sm:flex items-center gap-1 shrink-0 mr-1"
+                                    className="flex items-center gap-1 shrink-0 mr-1"
                                 >
                                     {/* Tone Selector */}
                                     <div className="relative">

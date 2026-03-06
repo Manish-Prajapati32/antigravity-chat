@@ -141,6 +141,18 @@ export const useChatStore = create((set, get) => ({
             }));
         });
 
+        socket.on('message_deleted_for_everyone', ({ messageId }) => {
+            const updateDeleted = (msg) =>
+                msg._id === messageId
+                    ? { ...msg, isDeletedForAll: true, content: '🚫 This message was deleted', fileUrl: null, fileType: null, reactions: [] }
+                    : msg;
+
+            set((state) => ({
+                messages: state.messages.map(updateDeleted),
+                globalMessages: state.globalMessages.map(updateDeleted)
+            }));
+        });
+
         socket.on('message_read', ({ messageId, readBy }) => {
             set((state) => ({
                 messages: state.messages.map(msg =>
@@ -172,6 +184,38 @@ export const useChatStore = create((set, get) => ({
             set({ users: res.data });
         } catch (err) {
             console.error(err);
+        }
+    },
+
+    deleteUserMessage: async (messageId, type) => {
+        try {
+            const token = useAuthStore.getState().token;
+            await axios.delete(`${API_URL}/messages/${messageId}`, {
+                headers: { Authorization: `Bearer ${token}` },
+                data: { type } // 'me' or 'everyone'
+            });
+
+            // Update local state immediately for snappy UI
+            set((state) => {
+                if (type === 'me') {
+                    return {
+                        messages: state.messages.filter(m => m._id !== messageId),
+                        globalMessages: state.globalMessages.filter(m => m._id !== messageId)
+                    };
+                } else if (type === 'everyone') {
+                    const updateMsg = (m) =>
+                        m._id === messageId
+                            ? { ...m, isDeletedForAll: true, content: '🚫 This message was deleted', fileUrl: null, fileType: null, reactions: [] }
+                            : m;
+                    return {
+                        messages: state.messages.map(updateMsg),
+                        globalMessages: state.globalMessages.map(updateMsg)
+                    };
+                }
+                return state;
+            });
+        } catch (err) {
+            console.error('Failed to delete message:', err);
         }
     },
 

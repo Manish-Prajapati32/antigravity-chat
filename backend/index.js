@@ -14,6 +14,7 @@ import uploadRoutes from './routes/uploadRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
 import invitationRoutes from './routes/invitationRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
 import { setupSocketIO } from './socket.js';
 
 dotenv.config();
@@ -86,6 +87,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/invitations', invitationRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check
 app.get('/', (req, res) => {

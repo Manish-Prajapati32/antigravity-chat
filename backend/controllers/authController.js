@@ -38,6 +38,11 @@ export const registerUser = async (req, res, next) => {
             username: user.username,
             email: user.email,
             avatar: user.avatar,
+            displayName: user.displayName || '',
+            bio: user.bio || '',
+            statusMessage: user.statusMessage || '',
+            role: user.role || 'user',
+            isBanned: user.isBanned || false,
             token: generateToken(user._id),
         });
     } catch (error) {
@@ -68,11 +73,25 @@ export const authUser = async (req, res, next) => {
             return res.status(401).json({ message: 'Incorrect password.' });
         }
 
+        // Third: check if banned
+        if (user.isBanned) {
+            return res.status(403).json({ message: 'Your account has been banned. Please contact support.' });
+        }
+
+        // Update last login
+        user.lastLogin = new Date();
+        await user.save();
+
         res.json({
             _id: user._id,
             username: user.username,
             email: user.email,
             avatar: user.avatar,
+            displayName: user.displayName || '',
+            bio: user.bio || '',
+            statusMessage: user.statusMessage || '',
+            role: user.role,
+            isBanned: user.isBanned,
             token: generateToken(user._id),
         });
     } catch (error) {
@@ -93,6 +112,11 @@ export const getUserProfile = async (req, res, next) => {
             username: user.username,
             email: user.email,
             avatar: user.avatar,
+            displayName: user.displayName || '',
+            bio: user.bio || '',
+            statusMessage: user.statusMessage || '',
+            role: user.role || 'user',
+            isBanned: user.isBanned || false,
         });
     } catch (error) {
         next(error);
@@ -103,14 +127,27 @@ export const getUserProfile = async (req, res, next) => {
 // @route   GET /api/auth/users
 export const getAllUsers = async (req, res, next) => {
     try {
-        const users = await User.find({ _id: { $ne: req.user._id } }).select('-password');
+        const keyword = req.query.search
+            ? {
+                $or: [
+                    { username: { $regex: req.query.search, $options: 'i' } },
+                    { email: { $regex: req.query.search, $options: 'i' } },
+                ],
+            }
+            : {};
+
+        const users = await User.find({
+            ...keyword,
+            _id: { $ne: req.user._id },
+            role: { $ne: 'admin' }
+        }).select('-password');
         res.json(users);
     } catch (error) {
         next(error);
     }
 };
 
-// @desc    Update user profile (username, avatar)
+// @desc    Update user profile (username, avatar, bio, statusMessage, displayName)
 // @route   PUT /api/auth/profile
 export const updateUserProfile = async (req, res, next) => {
     try {
@@ -119,6 +156,9 @@ export const updateUserProfile = async (req, res, next) => {
 
         if (req.body.username) user.username = req.body.username.trim();
         if (req.body.avatar !== undefined) user.avatar = req.body.avatar;
+        if (req.body.displayName !== undefined) user.displayName = req.body.displayName.trim();
+        if (req.body.bio !== undefined) user.bio = req.body.bio.trim().slice(0, 160);
+        if (req.body.statusMessage !== undefined) user.statusMessage = req.body.statusMessage.trim().slice(0, 80);
 
         const updated = await user.save();
         res.json({
@@ -126,6 +166,9 @@ export const updateUserProfile = async (req, res, next) => {
             username: updated.username,
             email: updated.email,
             avatar: updated.avatar,
+            displayName: updated.displayName || '',
+            bio: updated.bio || '',
+            statusMessage: updated.statusMessage || '',
         });
     } catch (error) {
         next(error);
