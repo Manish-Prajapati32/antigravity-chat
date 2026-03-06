@@ -213,7 +213,7 @@ const Sidebar = ({ onClose }) => {
 
                                     <div className="flex-1 text-left min-w-0">
                                         <div className={cn("font-medium truncate flex items-center justify-between gap-1", isActive ? "text-white" : "text-gray-300 group-hover:text-white")}>
-                                            <span className="truncate">{u.username}</span>
+                                            <span className="truncate">{u.displayName || u.username}</span>
                                             {unreadCount > 0 && (
                                                 <span className="shrink-0 flex items-center justify-center min-w-[1.4rem] h-5 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full shadow-[0_0_10px_rgba(239,68,68,0.7)] animate-pulse">
                                                     {unreadCount > 99 ? '99+' : unreadCount}
@@ -221,7 +221,11 @@ const Sidebar = ({ onClose }) => {
                                             )}
                                         </div>
                                         <div className="text-xs truncate flex items-center justify-between gap-1">
-                                            <PresencePill userId={u._id} username={u.username} className="flex-1 min-w-0" />
+                                            {u.statusMessage ? (
+                                                <span className="text-[11px] text-gray-500 italic truncate flex-1 min-w-0">{u.statusMessage}</span>
+                                            ) : (
+                                                <PresencePill userId={u._id} username={u.username} className="flex-1 min-w-0" />
+                                            )}
                                             {unreadCount > 0 && (
                                                 <span className="shrink-0 text-red-400 font-medium text-[10px]">New</span>
                                             )}

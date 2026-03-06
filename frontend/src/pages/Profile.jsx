@@ -13,6 +13,9 @@ const Profile = () => {
     const navigate = useNavigate();
 
     const [username, setUsername] = useState(user?.username || '');
+    const [displayName, setDisplayName] = useState(user?.displayName || '');
+    const [bio, setBio] = useState(user?.bio || '');
+    const [statusMessage, setStatusMessage] = useState(user?.statusMessage || '');
     const [avatarPreview, setAvatarPreview] = useState(null);
     const [avatarFile, setAvatarFile] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -49,7 +52,7 @@ const Profile = () => {
                 avatarUrl = uploadRes.data.fileUrl;
             }
 
-            await updateProfile({ username, avatar: avatarUrl });
+            await updateProfile({ username, avatar: avatarUrl, displayName, bio, statusMessage });
             setSuccess(true);
             setTimeout(() => setSuccess(false), 3000);
         } catch (err) {
@@ -184,6 +187,24 @@ const Profile = () => {
                         </div>
                     </div>
 
+                    {/* Display Name */}
+                    <div className="space-y-2">
+                        <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Display Name <span className="text-gray-600 normal-case">(optional)</span></label>
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <User className="h-4 w-4 text-gray-500" />
+                            </div>
+                            <input
+                                type="text"
+                                maxLength={50}
+                                className="glass-input w-full pl-11 pr-4 py-3 rounded-xl text-sm text-white placeholder-gray-500"
+                                placeholder="Name shown in chats (fallback: username)"
+                                value={displayName}
+                                onChange={(e) => setDisplayName(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
                     {/* Email (read-only) */}
                     <div className="space-y-2">
                         <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Email</label>
@@ -199,6 +220,38 @@ const Profile = () => {
                             />
                         </div>
                         <p className="text-[11px] text-gray-600">Email cannot be changed</p>
+                    </div>
+
+                    {/* Status Message */}
+                    <div className="space-y-2">
+                        <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Status Message</label>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                maxLength={80}
+                                className="glass-input w-full px-4 py-3 rounded-xl text-sm text-white placeholder-gray-500"
+                                placeholder="What's on your mind?"
+                                value={statusMessage}
+                                onChange={(e) => setStatusMessage(e.target.value)}
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-600">{statusMessage.length}/80</span>
+                        </div>
+                    </div>
+
+                    {/* Bio */}
+                    <div className="space-y-2">
+                        <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Bio</label>
+                        <div className="relative">
+                            <textarea
+                                maxLength={160}
+                                rows={3}
+                                className="glass-input w-full px-4 py-3 rounded-xl text-sm text-white placeholder-gray-500 resize-none"
+                                placeholder="Tell others about yourself (max 160 chars)"
+                                value={bio}
+                                onChange={(e) => setBio(e.target.value)}
+                            />
+                            <span className="absolute right-3 bottom-3 text-[10px] text-gray-600">{bio.length}/160</span>
+                        </div>
                     </div>
 
                     {/* Sound Effects Toggle */}
@@ -218,8 +271,8 @@ const Profile = () => {
                                 type="button"
                                 onClick={() => setSoundEnabled(!soundEnabled)}
                                 className={`relative w-11 h-6 rounded-full transition-all duration-300 ${soundEnabled
-                                        ? 'bg-[var(--color-neon-purple)] shadow-[0_0_10px_rgba(181,0,255,0.4)]'
-                                        : 'bg-gray-700'
+                                    ? 'bg-[var(--color-neon-purple)] shadow-[0_0_10px_rgba(181,0,255,0.4)]'
+                                    : 'bg-gray-700'
                                     }`}
                             >
                                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300 ${soundEnabled ? 'translate-x-5' : 'translate-x-0'

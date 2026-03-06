@@ -60,11 +60,11 @@ export const useAuthStore = create((set, get) => ({
         set({ user: null, token: null, error: null });
     },
 
-    updateProfile: async ({ username, avatar }) => {
+    updateProfile: async ({ username, avatar, displayName, bio, statusMessage }) => {
         const { token } = get();
         set({ isLoading: true, error: null });
         try {
-            const res = await axios.put(`${API_URL}/auth/profile`, { username, avatar }, {
+            const res = await axios.put(`${API_URL}/auth/profile`, { username, avatar, displayName, bio, statusMessage }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             set({ user: res.data, isLoading: false });
